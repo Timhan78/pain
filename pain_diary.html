@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pain Pattern Diary</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bone:#f3efe7;
+    --ink:#1c1a17;
+    --muted:#6e6862;
+    --line:#d8d2c6;
+    --paper:#fbf9f4;
+    --ember:#c0492f;       /* боль */
+    --ember-soft:#e3a393;
+    --slate:#3a5a6b;       /* активность / нейтраль */
+    --moss:#5b6e4a;        /* «хорошо» */
+    --amber:#c98a26;       /* предупреждение */
+    --shadow:0 1px 0 var(--line);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bone);
+    color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:15px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:880px;margin:0 auto;padding:0 18px 80px}
+  header.top{
+    padding:22px 0 14px;border-bottom:2px solid var(--ink);margin-bottom:0;
+  }
+  .brand{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+  h1{
+    font-family:"Georgia","Times New Roman",serif;
+    font-weight:700;font-size:25px;letter-spacing:-.01em;margin:0;
+  }
+  .brand .sub{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.12em}
+  nav.tabs{display:flex;gap:0;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bone);z-index:20;flex-wrap:wrap}
+  nav.tabs button{
+    appearance:none;border:none;background:none;cursor:pointer;
+    padding:13px 14px;font-size:13px;font-weight:600;color:var(--muted);
+    border-bottom:2px solid transparent;margin-bottom:-1px;
+    font-family:inherit;
+  }
+  nav.tabs button.active{color:var(--ink);border-bottom-color:var(--ember)}
+  nav.tabs button:focus-visible{outline:2px solid var(--slate);outline-offset:-2px}
+  section.view{display:none;padding-top:18px}
+  section.view.active{display:block}
+
+  .card{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:16px 16px;margin-bottom:14px}
+  .card h2{font-family:"Georgia",serif;font-size:17px;margin:0 0 4px}
+  .card .hint{color:var(--muted);font-size:12px;margin:0 0 14px}
+
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:560px){.grid2{grid-template-columns:1fr}}
+
+  label.field{display:block;margin-bottom:13px}
+  label.field>span{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:5px;text-transform:uppercase;letter-spacing:.04em}
+  input[type=date],input[type=time],input[type=text],input[type=number],select,textarea{
+    width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;
+    background:#fff;font-family:inherit;font-size:14px;color:var(--ink);
+  }
+  textarea{resize:vertical;min-height:54px}
+  input:focus,select:focus,textarea:focus{outline:2px solid var(--slate);outline-offset:0;border-color:var(--slate)}
+
+  .slider-row{display:flex;align-items:center;gap:12px}
+  .slider-row input[type=range]{flex:1;accent-color:var(--ember)}
+  .slider-val{font-variant-numeric:tabular-nums;font-weight:700;min-width:2.2em;text-align:right;font-size:16px}
+  .slider-val[data-zero="1"]{color:var(--muted);font-weight:600}
+  .scale-hint{display:block;font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.02em;text-transform:none}
+
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg button{
+    appearance:none;border:1px solid var(--line);background:#fff;border-radius:999px;
+    padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit;color:var(--ink);
+  }
+  .seg button.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+  .seg button:focus-visible{outline:2px solid var(--slate);outline-offset:1px}
+
+  .btn{
+    appearance:none;border:none;border-radius:8px;padding:11px 18px;font-size:14px;font-weight:700;
+    cursor:pointer;font-family:inherit;
+  }
+  .btn-primary{background:var(--ember);color:#fff}
+  .btn-primary:hover{background:#a83d27}
+  .btn-ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
+  .btn-ghost:hover{background:#efe9dd}
+  .btn:focus-visible{outline:2px solid var(--slate);outline-offset:2px}
+  .actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);
+    background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:8px;font-size:14px;
+    opacity:0;pointer-events:none;transition:.25s;z-index:50}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* quick log chips */
+  .quicklog{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+  .quicklog button{border:1px dashed var(--slate);background:#fff;color:var(--slate);border-radius:8px;padding:8px 12px;font-size:13px;cursor:pointer;font-family:inherit;font-weight:600}
+  .quicklog button:hover{background:#eef2f4}
+  .checkin-list{margin:0;padding:0;list-style:none}
+  .checkin-list li{display:flex;justify-content:space-between;gap:10px;border:1px solid var(--line);border-radius:7px;padding:8px 11px;margin-bottom:7px;font-size:13px;background:#fff}
+  .checkin-list .t{font-weight:700}
+  .checkin-list .x{color:var(--muted);cursor:pointer;border:none;background:none;font-size:15px}
+
+  /* entries table */
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:8px 9px;border-bottom:1px solid var(--line);white-space:nowrap}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);font-weight:700}
+  tr:hover td{background:#fff}
+  .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:999px;font-weight:700}
+  .tag.workday{background:#f0dcd6;color:#8a2f1c}
+  .tag.dayoff{background:#dde6d6;color:#3f5230}
+  .tag.travel{background:#dce6ec;color:#2c4a59}
+  .tag.holiday{background:#efe2c4;color:#7a5410}
+  .tag.sick{background:#e7e4e0;color:#5a544d}
+  .scroll-x{overflow-x:auto}
+
+  /* insight box */
+  .insight{background:#fff;border-left:4px solid var(--ember);padding:14px 16px;border-radius:0 8px 8px 0;font-size:14.5px;line-height:1.6;margin-bottom:14px}
+  .insight strong{color:var(--ember)}
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:6px}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:8px;padding:12px 13px}
+  .stat .n{font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1}
+  .stat .l{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-top:5px}
+
+  .chart-box{position:relative;height:300px;margin-top:8px}
+  .empty{color:var(--muted);font-size:14px;padding:30px 4px;text-align:center}
+
+  /* red flags */
+  .flag{display:none;background:#fbeae6;border:1.5px solid var(--ember);color:#7a2415;border-radius:10px;padding:14px 16px;margin-bottom:14px}
+  .flag.show{display:block}
+  .flag h3{margin:0 0 6px;font-size:15px}
+  .flag p{margin:0;font-size:14px}
+  .flag-checks{display:flex;flex-direction:column;gap:7px;margin-top:4px}
+  .flag-checks label{display:flex;gap:9px;align-items:flex-start;font-size:13.5px;cursor:pointer}
+  .flag-checks input{margin-top:3px;accent-color:var(--ember)}
+
+  footer{color:var(--muted);font-size:11px;text-align:center;padding-top:20px;border-top:1px solid var(--line);margin-top:24px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1>Pain Pattern Diary</h1>
+      <span class="sub">личный дневник · данные в браузере</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="today" class="active">Сегодня</button>
+    <button data-tab="entries">Записи</button>
+    <button data-tab="charts">Графики</button>
+    <button data-tab="insights">Анализ</button>
+  </nav>
+
+  <!-- ============ TODAY ============ -->
+  <section class="view active" id="view-today">
+    <div id="flagBox" class="flag" role="alert">
+      <h3>⚠ Возможен повод для срочной оценки</h3>
+      <p>Сочетание симптомов, которые вы отметили, может требовать срочной медицинской оценки. Обратитесь к врачу или в urgent care / NHS 111.</p>
+    </div>
+
+    <div class="card">
+      <h2>Утро</h2>
+      <p class="hint">2 минуты. Сон, боль по зонам, настроение, тревога.</p>
+      <label class="field"><span>Дата</span><input type="date" id="f_date"></label>
+      <label class="field"><span>Тип дня</span>
+        <div class="seg" id="seg_daytype" data-val="workday">
+          <button data-v="workday">Рабочий</button>
+          <button data-v="day off">Выходной</button>
+          <button data-v="travel">Поездка</button>
+          <button data-v="holiday">Отпуск</button>
+          <button data-v="sick day">Болезнь</button>
+        </div>
+      </label>
+      <div class="grid2">
+        <div data-slider="sleep_quality" data-label="Качество сна"></div>
+        <div data-slider="mood" data-label="Настроение"></div>
+        <div data-slider="m_lower_back" data-label="Поясница (утро)" data-pain="1"></div>
+        <div data-slider="m_coccyx" data-label="Копчик (утро)" data-pain="1"></div>
+        <div data-slider="m_thoracic" data-label="Грудной отдел (утро)" data-pain="1"></div>
+        <div data-slider="m_leg" data-label="Нога / симптомы (утро)" data-pain="1"></div>
+        <div data-slider="m_anxiety" data-label="Тревога о боли (утро)" data-pain="1"></div>
+        <div data-slider="m_interference" data-label="Мешает жить (утро)" data-pain="1"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>В течение дня</h2>
+      <p class="hint">Быстрые отметки. Жмёшь — записывается с текущим временем.</p>
+      <div class="quicklog" id="quicklog">
+        <button data-q="copchik">Заныл копчик</button>
+        <button data-q="sat">Долго сидел</button>
+        <button data-q="walk">Прошёлся</button>
+        <button data-q="stress">Был стресс</button>
+        <button data-q="pill">Выпил таблетку</button>
+        <button data-q="custom">+ другое</button>
+      </div>
+      <ul class="checkin-list" id="checkinList"></ul>
+    </div>
+
+    <div class="card">
+      <h2>Активность за день</h2>
+      <div class="grid2">
+        <label class="field"><span>Ходьба, км</span><input type="number" step="0.1" min="0" id="a_walk_km"></label>
+        <label class="field"><span>Самая длинная прогулка, мин</span><input type="number" min="0" id="a_walk_min"></label>
+        <label class="field"><span>Стоя, часов</span><input type="number" step="0.5" min="0" id="a_standing"></label>
+        <label class="field"><span>Сидя, часов</span><input type="number" step="0.5" min="0" id="a_sitting"></label>
+        <label class="field"><span>Макс. блок сидения, мин</span><input type="number" min="0" id="a_sit_block"></label>
+        <div data-slider="a_work_intensity" data-label="Нагрузка на работе"></div>
+        <label class="field"><span>Подъём тяжестей</span>
+          <select id="a_lifting"><option value="none">нет</option><option value="light">лёгкий</option><option value="moderate">средний</option><option value="heavy">тяжёлый</option></select>
+        </label>
+        <label class="field"><span>Поездка</span>
+          <select id="a_travel"><option value="none">нет</option><option value="car">авто</option><option value="train">поезд</option><option value="bus">автобус</option><option value="plane">самолёт</option></select>
+        </label>
+      </div>
+      <label class="field"><span>Упражнения</span>
+        <div class="seg" id="seg_ex" data-val="no">
+          <button data-v="yes">Делал</button><button data-v="no">Нет</button>
+        </div>
+      </label>
+      <div class="grid2" id="exDetails" style="display:none">
+        <label class="field"><span>Тип упражнений</span><input type="text" id="a_ex_type" placeholder="растяжка, McGill big 3…"></label>
+        <label class="field"><span>Реакция спины</span>
+          <select id="a_ex_reaction"><option value="better">лучше</option><option value="same">так же</option><option value="worse">хуже</option><option value="unclear">непонятно</option></select>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Восстановление</h2>
+      <p class="hint">Медитация и TENS. Реакция нужна, чтобы потом понять, помогают ли они.</p>
+      <label class="field"><span>Медитация</span>
+        <div class="seg" id="seg_med_practice" data-val="no">
+          <button data-v="yes">Делал</button><button data-v="no">Нет</button>
+        </div>
+      </label>
+      <div class="grid2" id="medDetails" style="display:none">
+        <label class="field"><span>Минут</span><input type="number" min="0" id="a_med_min" placeholder="напр. 10"></label>
+        <label class="field"><span>Реакция</span>
+          <select id="a_med_reaction"><option value="better">помогло</option><option value="same">без эффекта</option><option value="worse">хуже</option><option value="unclear">непонятно</option></select>
+        </label>
+      </div>
+      <label class="field"><span>TENS</span>
+        <div class="seg" id="seg_tens" data-val="no">
+          <button data-v="yes">Использовал</button><button data-v="no">Нет</button>
+        </div>
+      </label>
+      <div class="grid2" id="tensDetails" style="display:none">
+        <label class="field"><span>Минут</span><input type="number" min="0" id="a_tens_min" placeholder="напр. 30"></label>
+        <label class="field"><span>Реакция</span>
+          <select id="a_tens_reaction"><option value="better">помогло</option><option value="same">без эффекта</option><option value="worse">хуже</option><option value="unclear">непонятно</option></select>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Вечер</h2>
+      <p class="hint">3 минуты. Боль вечером, насколько мешала, итог дня.</p>
+      <div class="grid2">
+        <div data-slider="e_lower_back" data-label="Поясница (вечер)" data-pain="1"></div>
+        <div data-slider="e_coccyx" data-label="Копчик (вечер)" data-pain="1"></div>
+        <div data-slider="e_thoracic" data-label="Грудной отдел (вечер)" data-pain="1"></div>
+        <div data-slider="e_leg" data-label="Нога / симптомы (вечер)" data-pain="1"></div>
+        <div data-slider="e_anxiety" data-label="Тревога о боли (вечер)" data-pain="1"></div>
+        <div data-slider="e_interference" data-label="Мешала жить (вечер)" data-pain="1"></div>
+        <div data-slider="stress_level" data-label="Стресс за день"></div>
+      </div>
+      <label class="field"><span>Лекарство</span>
+        <div class="seg" id="seg_med" data-val="no">
+          <button data-v="yes">Принимал</button><button data-v="no">Нет</button>
+        </div>
+      </label>
+      <div class="grid2">
+        <label class="field" id="medNameWrap" style="display:none"><span>Название</span><input type="text" id="f_med_name"></label>
+        <label class="field"><span>Алкоголь</span>
+          <select id="f_alcohol"><option value="no">нет</option><option value="yes">да</option></select>
+        </label>
+      </div>
+      <label class="field"><span>Главный характер боли</span>
+        <div class="seg" id="seg_char" data-val="">
+          <button data-v="dull ache">ноющая</button><button data-v="sharp">острая</button>
+          <button data-v="burning">жжение</button><button data-v="pulling">тянущая</button>
+          <button data-v="stiffness">скованность</button><button data-v="shooting">простреливающая</button>
+          <button data-v="pressure">давящая</button>
+        </div>
+      </label>
+      <label class="field"><span>Комментарий дня</span><textarea id="f_notes" placeholder="что предшествовало, где локализация, что помогло…"></textarea></label>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="saveBtn">Сохранить день</button>
+      <button class="btn btn-ghost" id="newBtn">Очистить форму</button>
+      <span class="hint" id="saveHint"></span>
+    </div>
+  </section>
+
+  <!-- ============ ENTRIES ============ -->
+  <section class="view" id="view-entries">
+    <div class="card">
+      <div class="actions" style="justify-content:space-between;margin-bottom:12px">
+        <h2 style="margin:0">Записи <span class="hint" id="entryCount"></span></h2>
+        <div class="actions">
+          <button class="btn btn-ghost" id="importBtn">Импорт CSV</button>
+          <button class="btn btn-ghost" id="exportBtn">Экспорт CSV</button>
+          <input type="file" id="importFile" accept=".csv" style="display:none">
+        </div>
+      </div>
+      <div class="scroll-x">
+        <table id="entriesTable">
+          <thead><tr>
+            <th>Дата</th><th>День</th><th>Поясн.♥</th><th>Копчик♥</th><th>Грудн.♥</th>
+            <th>Мешала</th><th>Ходьба</th><th>Стоя</th><th>Упр.</th><th></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p class="empty" id="entriesEmpty" style="display:none">Пока нет записей. Заполните «Сегодня» и сохраните.</p>
+    </div>
+  </section>
+
+  <!-- ============ CHARTS ============ -->
+  <section class="view" id="view-charts">
+    <div class="card"><h2>1 · Боль по дням</h2><p class="hint">Поясница (вечер) · копчик (вечер) · грудной (утро)</p><div class="chart-box"><canvas id="c1"></canvas></div></div>
+    <div class="card"><h2>2 · Боль vs «мешала жить»</h2><p class="hint">Интенсивность против влияния на жизнь (вечер)</p><div class="chart-box"><canvas id="c2"></canvas></div></div>
+    <div class="card"><h2>3 · Средняя боль по типу дня</h2><div class="chart-box"><canvas id="c3"></canvas></div></div>
+    <div class="card"><h2>4 · Ходьба vs поясница (вечер)</h2><div class="chart-box"><canvas id="c4"></canvas></div></div>
+    <div class="card"><h2>5 · Стояние vs поясница (вечер)</h2><div class="chart-box"><canvas id="c5"></canvas></div></div>
+  </section>
+
+  <!-- ============ INSIGHTS ============ -->
+  <section class="view" id="view-insights">
+    <div class="card">
+      <h2>Автоматический отчёт</h2>
+      <p class="hint">Считается по сохранённым дням за период.</p>
+      <div class="stat-grid" id="statGrid"></div>
+      <div class="insight" id="reportText"></div>
+      <div id="comparisons"></div>
+    </div>
+  </section>
+
+  <footer>Данные хранятся только в этом браузере. Раз в неделю жмите «Экспорт CSV» — это бэкап. На другом устройстве загрузите его через «Импорт CSV». Это не медицинское устройство.</footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const KEY = "pain_pattern_diary_v1";
+const PAIN_FIELDS = ["m_lower_back","m_coccyx","m_thoracic","m_leg","m_anxiety","m_interference","e_lower_back","e_coccyx","e_thoracic","e_leg","e_anxiety","e_interference"];
+const NEUTRAL_SLIDERS = ["sleep_quality","mood","stress_level","a_work_intensity"];
+
+let state = { daytype:"workday", ex:"no", med:"no", meditation:"no", tens:"no", char:"", checkins:[] };
+let charts = {};
+
+// ---------- storage ----------
+function loadAll(){ try{ return JSON.parse(localStorage.getItem(KEY)||"[]"); }catch(e){ return []; } }
+function saveAll(arr){ localStorage.setItem(KEY, JSON.stringify(arr)); }
+
+// ---------- sliders ----------
+function buildSlider(div){
+  const id = div.dataset.slider, label = div.dataset.label, pain = div.dataset.pain==="1";
+  div.classList.add("field"); 
+  div.innerHTML = `<span>${label}</span>
+    <div class="slider-row">
+      <input type="range" min="0" max="10" step="1" value="0" id="${id}" ${pain?'data-pain="1"':''}>
+      <span class="slider-val" data-zero="1" id="${id}_v">0</span>
+    </div>
+    ${pain?'<span class="scale-hint">0 — нет боли · 10 — невыносимо</span>':''}`;
+  const inp = div.querySelector("input"), out = div.querySelector(".slider-val");
+  inp.addEventListener("input", ()=>{
+    out.textContent = inp.value;
+    out.dataset.zero = inp.value==="0" ? "1":"0";
+    out.style.color = pain && +inp.value>=7 ? "var(--ember)" : (inp.value==="0"?"var(--muted)":"var(--ink)");
+    if(pain) checkFlags();
+  });
+}
+document.querySelectorAll("[data-slider]").forEach(buildSlider);
+
+function getNum(id){ const e=document.getElementById(id); return e? (e.value===""?0:+e.value):0; }
+function setSlider(id,v){ const e=document.getElementById(id); if(!e)return; e.value=v||0; e.dispatchEvent(new Event("input")); }
+
+// ---------- segmented controls ----------
+function wireSeg(segId, stateKey, onChange){
+  const seg = document.getElementById(segId);
+  seg.querySelectorAll("button").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));
+      b.classList.add("on");
+      seg.dataset.val = b.dataset.v;
+      state[stateKey] = b.dataset.v;
+      if(onChange) onChange(b.dataset.v);
+    });
+  });
+}
+function setSeg(segId, val){
+  const seg=document.getElementById(segId);
+  seg.querySelectorAll("button").forEach(x=>x.classList.toggle("on", x.dataset.v===val));
+  seg.dataset.val=val;
+}
+wireSeg("seg_daytype","daytype");
+wireSeg("seg_ex","ex", v=>{ document.getElementById("exDetails").style.display = v==="yes"?"grid":"none"; });
+wireSeg("seg_med","med", v=>{ document.getElementById("medNameWrap").style.display = v==="yes"?"block":"none"; });
+wireSeg("seg_med_practice","meditation", v=>{ document.getElementById("medDetails").style.display = v==="yes"?"grid":"none"; });
+wireSeg("seg_tens","tens", v=>{ document.getElementById("tensDetails").style.display = v==="yes"?"grid":"none"; });
+wireSeg("seg_char","char");
+
+// ---------- quick log ----------
+const QUICK = {
+  copchik:"копчик заныл", sat:"долго сидел", walk:"прошёлся",
+  stress:"стресс", pill:"таблетка"
+};
+function nowHM(){ const d=new Date(); return d.toTimeString().slice(0,5); }
+function renderCheckins(){
+  const ul=document.getElementById("checkinList"); ul.innerHTML="";
+  state.checkins.forEach((c,i)=>{
+    const li=document.createElement("li");
+    li.innerHTML=`<span><span class="t">${c.time}</span> · ${c.note}</span>`;
+    const x=document.createElement("button"); x.className="x"; x.textContent="×"; x.title="удалить";
+    x.onclick=()=>{ state.checkins.splice(i,1); renderCheckins(); };
+    li.appendChild(x); ul.appendChild(li);
+  });
+}
+document.getElementById("quicklog").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b)return;
+  const q=b.dataset.q;
+  let note = QUICK[q];
+  if(q==="custom"){ note = prompt("Что отметить?"); if(!note) return; }
+  state.checkins.push({ time: nowHM(), note });
+  renderCheckins(); toast("Отмечено: "+note);
+});
+
+// ---------- red flags ----------
+function checkFlags(){
+  const box=document.getElementById("flagBox");
+  const maxPain = Math.max(getNum("e_lower_back"),getNum("e_coccyx"),getNum("e_thoracic"),getNum("m_lower_back"),getNum("m_coccyx"),getNum("m_thoracic"));
+  const leg = Math.max(getNum("m_leg"),getNum("e_leg"));
+  const trigger = maxPain>=8 || leg>=8;
+  box.classList.toggle("show", trigger);
+}
+
+// ---------- form <-> object ----------
+function formToObj(){
+  return {
+    date: document.getElementById("f_date").value || new Date().toISOString().slice(0,10),
+    day_type: state.daytype,
+    sleep_quality:getNum("sleep_quality"), stress_level:getNum("stress_level"), mood:getNum("mood"),
+    morning_lower_back:getNum("m_lower_back"), morning_coccyx:getNum("m_coccyx"), morning_thoracic:getNum("m_thoracic"),
+    morning_leg_symptoms:getNum("m_leg"), morning_anxiety:getNum("m_anxiety"), morning_interference:getNum("m_interference"),
+    evening_lower_back:getNum("e_lower_back"), evening_coccyx:getNum("e_coccyx"), evening_thoracic:getNum("e_thoracic"),
+    evening_leg_symptoms:getNum("e_leg"), evening_anxiety:getNum("e_anxiety"), evening_interference:getNum("e_interference"),
+    walking_km:getNum("a_walk_km"), longest_walk_min:getNum("a_walk_min"),
+    standing_hours:getNum("a_standing"), sitting_hours:getNum("a_sitting"), longest_sitting_min:getNum("a_sit_block"),
+    lifting:document.getElementById("a_lifting").value, travel:document.getElementById("a_travel").value,
+    work_intensity:getNum("a_work_intensity"),
+    exercises_done:state.ex, exercise_type:document.getElementById("a_ex_type").value,
+    exercise_reaction: state.ex==="yes"?document.getElementById("a_ex_reaction").value:"",
+    meditation_done:state.meditation, meditation_min: state.meditation==="yes"?getNum("a_med_min"):0,
+    meditation_reaction: state.meditation==="yes"?document.getElementById("a_med_reaction").value:"",
+    tens_done:state.tens, tens_min: state.tens==="yes"?getNum("a_tens_min"):0,
+    tens_reaction: state.tens==="yes"?document.getElementById("a_tens_reaction").value:"",
+    medication_taken:state.med, medication_name: state.med==="yes"?document.getElementById("f_med_name").value:"",
+    alcohol:document.getElementById("f_alcohol").value,
+    pain_character:state.char,
+    checkins: state.checkins.slice(),
+    notes:document.getElementById("f_notes").value
+  };
+}
+function objToForm(o){
+  suppressAutosave=true;
+  document.getElementById("f_date").value=o.date;
+  setSeg("seg_daytype",o.day_type); state.daytype=o.day_type;
+  setSlider("sleep_quality",o.sleep_quality); setSlider("stress_level",o.stress_level); setSlider("mood",o.mood);
+  setSlider("m_lower_back",o.morning_lower_back); setSlider("m_coccyx",o.morning_coccyx); setSlider("m_thoracic",o.morning_thoracic);
+  setSlider("m_leg",o.morning_leg_symptoms); setSlider("m_anxiety",o.morning_anxiety); setSlider("m_interference",o.morning_interference);
+  setSlider("e_lower_back",o.evening_lower_back); setSlider("e_coccyx",o.evening_coccyx); setSlider("e_thoracic",o.evening_thoracic);
+  setSlider("e_leg",o.evening_leg_symptoms); setSlider("e_anxiety",o.evening_anxiety); setSlider("e_interference",o.evening_interference);
+  document.getElementById("a_walk_km").value=o.walking_km||""; document.getElementById("a_walk_min").value=o.longest_walk_min||"";
+  document.getElementById("a_standing").value=o.standing_hours||""; document.getElementById("a_sitting").value=o.sitting_hours||"";
+  document.getElementById("a_sit_block").value=o.longest_sitting_min||"";
+  document.getElementById("a_lifting").value=o.lifting||"none"; document.getElementById("a_travel").value=o.travel||"none";
+  setSlider("a_work_intensity",o.work_intensity);
+  setSeg("seg_ex",o.exercises_done); state.ex=o.exercises_done; document.getElementById("exDetails").style.display=o.exercises_done==="yes"?"grid":"none";
+  document.getElementById("a_ex_type").value=o.exercise_type||""; document.getElementById("a_ex_reaction").value=o.exercise_reaction||"better";
+  setSeg("seg_med_practice",o.meditation_done||"no"); state.meditation=o.meditation_done||"no";
+  document.getElementById("medDetails").style.display=(o.meditation_done==="yes")?"grid":"none";
+  document.getElementById("a_med_min").value=o.meditation_min||""; document.getElementById("a_med_reaction").value=o.meditation_reaction||"better";
+  setSeg("seg_tens",o.tens_done||"no"); state.tens=o.tens_done||"no";
+  document.getElementById("tensDetails").style.display=(o.tens_done==="yes")?"grid":"none";
+  document.getElementById("a_tens_min").value=o.tens_min||""; document.getElementById("a_tens_reaction").value=o.tens_reaction||"better";
+  setSeg("seg_med",o.medication_taken); state.med=o.medication_taken; document.getElementById("medNameWrap").style.display=o.medication_taken==="yes"?"block":"none";
+  document.getElementById("f_med_name").value=o.medication_name||"";
+  document.getElementById("f_alcohol").value=o.alcohol||"no";
+  setSeg("seg_char",o.pain_character||""); state.char=o.pain_character||"";
+  state.checkins = (o.checkins||[]).slice(); renderCheckins();
+  document.getElementById("f_notes").value=o.notes||"";
+  checkFlags();
+  suppressAutosave=false;
+}
+
+function resetForm(){
+  suppressAutosave=true;
+  state={ daytype:"workday", ex:"no", med:"no", meditation:"no", tens:"no", char:"", checkins:[] };
+  document.getElementById("f_date").value=new Date().toISOString().slice(0,10);
+  setSeg("seg_daytype","workday"); setSeg("seg_ex","no"); setSeg("seg_med","no"); setSeg("seg_char","");
+  setSeg("seg_med_practice","no"); setSeg("seg_tens","no");
+  [...PAIN_FIELDS,...NEUTRAL_SLIDERS].forEach(id=>setSlider(id,0));
+  ["a_walk_km","a_walk_min","a_standing","a_sitting","a_sit_block","a_ex_type","f_med_name","f_notes","a_med_min","a_tens_min"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("a_lifting").value="none"; document.getElementById("a_travel").value="none"; document.getElementById("f_alcohol").value="no";
+  document.getElementById("exDetails").style.display="none"; document.getElementById("medNameWrap").style.display="none";
+  document.getElementById("medDetails").style.display="none"; document.getElementById("tensDetails").style.display="none";
+  renderCheckins(); checkFlags();
+  document.getElementById("saveHint").textContent="";
+  suppressAutosave=false;
+}
+
+// ---------- save (upsert by date) ----------
+// ---------- save ----------
+let autosaveT, suppressAutosave=false;
+function persist(manual){
+  const o=formToObj();
+  const all=loadAll();
+  const idx=all.findIndex(x=>x.date===o.date);
+  if(idx>=0) all[idx]=o; else all.push(o);
+  all.sort((a,b)=>a.date<b.date?-1:1);
+  saveAll(all);
+  const t=new Date().toTimeString().slice(0,5);
+  document.getElementById("saveHint").textContent="✓ сохранено автоматически · "+t;
+  if(manual) toast(idx>=0?"День обновлён":"День сохранён");
+  refreshAll();
+}
+function scheduleAutosave(){
+  if(suppressAutosave) return;
+  document.getElementById("saveHint").textContent="…сохраняю";
+  clearTimeout(autosaveT);
+  autosaveT=setTimeout(()=>persist(false), 700);
+}
+document.getElementById("saveBtn").addEventListener("click", ()=>{ clearTimeout(autosaveT); persist(true); });
+document.getElementById("newBtn").addEventListener("click", ()=>{ resetForm(); toast("Форма очищена"); });
+
+// автосохранение при любом изменении полей в разделе «Сегодня»
+document.getElementById("view-today").addEventListener("input", scheduleAutosave);
+document.getElementById("view-today").addEventListener("change", scheduleAutosave);
+document.getElementById("view-today").addEventListener("click", e=>{
+  if(e.target.closest(".seg button, .quicklog button, .checkin-list .x")) scheduleAutosave();
+});
+
+// ---------- entries table ----------
+const DAYTAG={ "workday":["workday","рабочий"],"day off":["dayoff","выходной"],"travel":["travel","поездка"],"holiday":["holiday","отпуск"],"sick day":["sick","болезнь"] };
+function renderEntries(){
+  const all=loadAll().slice().reverse();
+  const tb=document.querySelector("#entriesTable tbody"); tb.innerHTML="";
+  document.getElementById("entryCount").textContent = all.length?`(${all.length})`:"";
+  document.getElementById("entriesEmpty").style.display = all.length?"none":"block";
+  all.forEach(o=>{
+    const tr=document.createElement("tr");
+    const t=DAYTAG[o.day_type]||["",o.day_type];
+    tr.innerHTML=`<td>${o.date}</td><td><span class="tag ${t[0]}">${t[1]}</span></td>
+      <td>${o.evening_lower_back}</td><td>${o.evening_coccyx}</td><td>${o.morning_thoracic}</td>
+      <td>${o.evening_interference}</td><td>${o.walking_km||0} км</td><td>${o.standing_hours||0} ч</td>
+      <td>${o.exercises_done==="yes"?"✓":"—"}</td>`;
+    const td=document.createElement("td");
+    const ed=document.createElement("button"); ed.className="x"; ed.textContent="✎"; ed.title="редактировать";
+    ed.onclick=()=>{ objToForm(o); switchTab("today"); window.scrollTo(0,0); toast("Загружено для редактирования"); };
+    const del=document.createElement("button"); del.className="x"; del.textContent="×"; del.title="удалить";
+    del.onclick=()=>{ if(confirm("Удалить запись за "+o.date+"?")){ saveAll(loadAll().filter(x=>x.date!==o.date)); refreshAll(); toast("Удалено"); } };
+    td.append(ed,del); tr.appendChild(td); tb.appendChild(tr);
+  });
+}
+
+// ---------- CSV export ----------
+const CSV_COLS=["date","day_type","sleep_quality","stress_level","mood","morning_lower_back","morning_coccyx","morning_thoracic","morning_leg_symptoms","morning_anxiety","morning_interference","evening_lower_back","evening_coccyx","evening_thoracic","evening_leg_symptoms","evening_anxiety","evening_interference","walking_km","longest_walk_min","standing_hours","sitting_hours","longest_sitting_min","work_intensity","exercises_done","exercise_reaction","meditation_done","meditation_min","meditation_reaction","tens_done","tens_min","tens_reaction","medication_taken","alcohol","notes"];
+document.getElementById("exportBtn").addEventListener("click", ()=>{
+  const all=loadAll();
+  if(!all.length){ toast("Нет данных"); return; }
+  const esc=v=>{ v=v==null?"":String(v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; };
+  const rows=[CSV_COLS.join(",")];
+  all.forEach(o=>rows.push(CSV_COLS.map(c=>esc(o[c])).join(",")));
+  const blob=new Blob(["\ufeff"+rows.join("\n")],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob);
+  a.download="pain_diary_"+new Date().toISOString().slice(0,10)+".csv"; a.click();
+  toast("CSV скачан");
+});
+
+// ---------- CSV import (merge by date) ----------
+document.getElementById("importBtn").addEventListener("click", ()=>document.getElementById("importFile").click());
+document.getElementById("importFile").addEventListener("change", e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    try{
+      const incoming=parseCSV(ev.target.result);
+      if(!incoming.length){ toast("В файле нет записей"); return; }
+      const all=loadAll();
+      const byDate={};
+      all.forEach(o=>byDate[o.date]=o);
+      let added=0, updated=0;
+      incoming.forEach(o=>{
+        if(!o.date) return;
+        if(byDate[o.date]) updated++; else added++;
+        byDate[o.date]=o; // версия из файла побеждает
+      });
+      const merged=Object.values(byDate).sort((a,b)=>a.date<b.date?-1:1);
+      saveAll(merged);
+      refreshAll();
+      const cur=document.getElementById("f_date").value;
+      if(byDate[cur]) objToForm(byDate[cur]);
+      toast(`Импорт: +${added} новых, ${updated} обновлено`);
+    }catch(err){
+      toast("Не удалось прочитать файл");
+      console.error(err);
+    }
+    e.target.value=""; // позволяет повторно выбрать тот же файл
+  };
+  reader.readAsText(file);
+});
+
+// маленький CSV-парсер с поддержкой кавычек и переводов строк внутри полей
+function parseCSV(text){
+  text=text.replace(/^\ufeff/,"").replace(/\r\n/g,"\n").replace(/\r/g,"\n");
+  const rows=[]; let row=[], cur="", q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){
+      if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; }
+      else cur+=ch;
+    }else{
+      if(ch==='"') q=true;
+      else if(ch===',') { row.push(cur); cur=""; }
+      else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=""; }
+      else cur+=ch;
+    }
+  }
+  if(cur!==""||row.length){ row.push(cur); rows.push(row); }
+  if(!rows.length) return [];
+  const header=rows[0].map(h=>h.trim());
+  const numCols=new Set(CSV_COLS.filter(c=>!["date","day_type","exercises_done","exercise_reaction","meditation_done","meditation_reaction","tens_done","tens_reaction","medication_taken","alcohol","notes","medication_name","pain_character","lifting","travel","exercise_type"].includes(c)));
+  const out=[];
+  for(let r=1;r<rows.length;r++){
+    if(rows[r].length===1 && rows[r][0]==="") continue;
+    const o={};
+    header.forEach((h,c)=>{
+      let v=rows[r][c]!==undefined?rows[r][c]:"";
+      o[h]= numCols.has(h) ? (v===""?0:(+v||0)) : v;
+    });
+    if(o.date) out.push(o);
+  }
+  return out;
+}
+
+// ---------- charts ----------
+const PAL={ember:"#c0492f",slate:"#3a5a6b",moss:"#5b6e4a",amber:"#c98a26",ember2:"#e3a393"};
+function mk(id,cfg){ if(charts[id])charts[id].destroy(); charts[id]=new Chart(document.getElementById(id),cfg); }
+const baseOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{font:{size:11},boxWidth:12}}},scales:{y:{beginAtZero:true,max:10},x:{ticks:{font:{size:10},maxRotation:0}}}};
+
+function renderCharts(){
+  const all=loadAll();
+  if(!all.length){ ["c1","c2","c3","c4","c5"].forEach(id=>{ if(charts[id])charts[id].destroy(); }); return; }
+  const labels=all.map(o=>o.date.slice(5));
+  mk("c1",{type:"line",data:{labels,datasets:[
+    {label:"Поясница веч.",data:all.map(o=>o.evening_lower_back),borderColor:PAL.ember,backgroundColor:PAL.ember,tension:.3},
+    {label:"Копчик веч.",data:all.map(o=>o.evening_coccyx),borderColor:PAL.amber,backgroundColor:PAL.amber,tension:.3},
+    {label:"Грудной утро",data:all.map(o=>o.morning_thoracic),borderColor:PAL.slate,backgroundColor:PAL.slate,tension:.3}
+  ]},options:baseOpts});
+  mk("c2",{type:"line",data:{labels,datasets:[
+    {label:"Интенсивность (поясн. веч.)",data:all.map(o=>o.evening_lower_back),borderColor:PAL.ember,backgroundColor:PAL.ember,tension:.3},
+    {label:"Мешала жить (веч.)",data:all.map(o=>o.evening_interference),borderColor:PAL.slate,borderDash:[5,4],backgroundColor:PAL.slate,tension:.3}
+  ]},options:baseOpts});
+  // c3 avg pain by day type
+  const groups={}; all.forEach(o=>{ (groups[o.day_type]=groups[o.day_type]||[]).push(avgEveningPain(o)); });
+  const order=["workday","day off","travel","holiday","sick day"], lab=[],dat=[];
+  order.forEach(k=>{ if(groups[k]){ lab.push(DAYTAG[k][1]); dat.push(mean(groups[k])); }});
+  mk("c3",{type:"bar",data:{labels:lab,datasets:[{label:"Ср. боль (вечер)",data:dat,backgroundColor:[PAL.ember,PAL.moss,PAL.slate,PAL.amber,"#8a847c"]}]},options:{...baseOpts,plugins:{legend:{display:false}}}});
+  // c4 walking vs lower back
+  mk("c4",{type:"scatter",data:{datasets:[{label:"день",data:all.map(o=>({x:o.walking_km,y:o.evening_lower_back})),backgroundColor:PAL.ember}]},
+    options:{...baseOpts,scales:{y:{beginAtZero:true,max:10,title:{display:true,text:"поясница веч."}},x:{beginAtZero:true,title:{display:true,text:"км"}}}}});
+  // c5 standing vs lower back
+  mk("c5",{type:"scatter",data:{datasets:[{label:"день",data:all.map(o=>({x:o.standing_hours,y:o.evening_lower_back})),backgroundColor:PAL.slate}]},
+    options:{...baseOpts,scales:{y:{beginAtZero:true,max:10,title:{display:true,text:"поясница веч."}},x:{beginAtZero:true,title:{display:true,text:"часов стоя"}}}}});
+}
+
+// ---------- analytics ----------
+function mean(a){ return a.length? a.reduce((s,x)=>s+x,0)/a.length : 0; }
+function r1(x){ return Math.round(x*10)/10; }
+function avgEveningPain(o){ return mean([o.evening_lower_back,o.evening_coccyx,o.evening_thoracic]); }
+function lastNDays(all,n){ const cut=new Date(); cut.setDate(cut.getDate()-n); return all.filter(o=>new Date(o.date)>=cut); }
+
+function renderInsights(){
+  const all=loadAll();
+  const sg=document.getElementById("statGrid");
+  const rep=document.getElementById("reportText");
+  const cmp=document.getElementById("comparisons");
+  if(all.length<2){
+    sg.innerHTML=""; cmp.innerHTML="";
+    rep.innerHTML="Нужно минимум 2 сохранённых дня, чтобы считать паттерны. Заполняйте дневник несколько дней — отчёт появится автоматически.";
+    return;
+  }
+  const p7=lastNDays(all,7), p30=lastNDays(all,30);
+  const pain=o=>avgEveningPain(o);
+  const avg7=mean(p7.map(pain)), avg30=mean(p30.map(pain));
+  const int7=mean(p7.map(o=>o.evening_interference));
+  sg.innerHTML=`
+    <div class="stat"><div class="n">${r1(avg7)}</div><div class="l">Ср. боль · 7 дней</div></div>
+    <div class="stat"><div class="n">${r1(avg30)}</div><div class="l">Ср. боль · 30 дней</div></div>
+    <div class="stat"><div class="n">${r1(int7)}</div><div class="l">Мешала жить · 7 дней</div></div>
+    <div class="stat"><div class="n">${all.length}</div><div class="l">Всего дней</div></div>`;
+
+  // comparisons
+  const work=all.filter(o=>o.day_type==="workday").map(o=>o.evening_lower_back);
+  const off=all.filter(o=>["day off","holiday"].includes(o.day_type)).map(o=>o.evening_lower_back);
+  const exY=all.filter(o=>o.exercises_done==="yes").map(pain), exN=all.filter(o=>o.exercises_done==="no").map(pain);
+  const walkMed=median(all.map(o=>o.walking_km));
+  const hiW=all.filter(o=>o.walking_km>walkMed).map(o=>o.evening_lower_back), loW=all.filter(o=>o.walking_km<=walkMed).map(o=>o.evening_lower_back);
+  const strMed=median(all.map(o=>o.stress_level));
+  const hiS=all.filter(o=>o.stress_level>strMed).map(pain), loS=all.filter(o=>o.stress_level<=strMed).map(pain);
+  const medY=all.filter(o=>o.meditation_done==="yes").map(pain), medN=all.filter(o=>o.meditation_done==="no").map(pain);
+  const tensY=all.filter(o=>o.tens_done==="yes").map(pain), tensN=all.filter(o=>o.tens_done==="no").map(pain);
+
+  // сводка по самооценке «помогло»
+  function reactionSummary(field, doneField){
+    const used=all.filter(o=>o[doneField]==="yes");
+    if(!used.length) return "";
+    const c={better:0,same:0,worse:0,unclear:0};
+    used.forEach(o=>{ const r=o[field]||"unclear"; c[r]=(c[r]||0)+1; });
+    const parts=[];
+    if(c.better) parts.push(`помогло ${c.better}`);
+    if(c.same) parts.push(`без эффекта ${c.same}`);
+    if(c.worse) parts.push(`хуже ${c.worse}`);
+    if(c.unclear) parts.push(`непонятно ${c.unclear}`);
+    return `${used.length} ${used.length===1?"сеанс":"сеансов/дней"} · ${parts.join(", ")}`;
+  }
+  const medSummary=reactionSummary("meditation_reaction","meditation_done");
+  const tensSummary=reactionSummary("tens_reaction","tens_done");
+
+  function row(name,a,b,la,lb){
+    if(!a.length||!b.length) return "";
+    const A=r1(mean(a)),B=r1(mean(b)); const worse=A>B;
+    return `<tr><td>${name}</td><td>${la}: <b>${A}</b></td><td>${lb}: <b>${B}</b></td><td style="color:${Math.abs(A-B)>=1?'var(--ember)':'var(--muted)'}">Δ ${r1(Math.abs(A-B))}</td></tr>`;
+  }
+  cmp.innerHTML = `<div class="scroll-x"><table><thead><tr><th>Сравнение</th><th></th><th></th><th>Разница</th></tr></thead><tbody>
+    ${row("Рабочие vs выходные",work,off,"раб","вых")}
+    ${row("С упражнениями vs без",exY,exN,"да","нет")}
+    ${row("С медитацией vs без",medY,medN,"да","нет")}
+    ${row("С TENS vs без",tensY,tensN,"да","нет")}
+    ${row("Много vs мало ходьбы",hiW,loW,"много","мало")}
+    ${row("Высокий vs низкий стресс",hiS,loS,"выс","низ")}
+  </tbody></table></div>
+  ${(medSummary||tensSummary)?`<div style="margin-top:12px;font-size:13.5px;line-height:1.7">
+    <div style="font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px;font-weight:700">Ваша самооценка</div>
+    ${medSummary?`<div>🧘 Медитация: ${medSummary}</div>`:""}
+    ${tensSummary?`<div>⚡ TENS: ${tensSummary}</div>`:""}
+  </div>`:""}`;
+
+  // narrative report
+  const span=Math.min(14,all.length);
+  const recent=all.slice(-span);
+  const w=recent.filter(o=>o.day_type==="workday").map(o=>o.evening_lower_back);
+  const o2=recent.filter(o=>["day off","holiday"].includes(o.day_type)).map(o=>o.evening_lower_back);
+  let txt=`За последние ${span} ${plural(span)} `;
+  if(w.length&&o2.length){
+    const aw=r1(mean(w)),ao=r1(mean(o2));
+    txt += aw>ao
+      ? `боль в пояснице вечером была <strong>выше в рабочие дни</strong>, чем в выходные. Средняя после работы: <strong>${aw}</strong>. В выходные: <strong>${ao}</strong>. `
+      : `боль в пояснице вечером была примерно одинаковой в рабочие и выходные дни (раб. ${aw}, вых. ${ao}). `;
+  } else {
+    txt += `средняя боль в пояснице вечером — <strong>${r1(mean(recent.map(o=>o.evening_lower_back)))}</strong>. `;
+  }
+  // walking signal
+  const corrW = corr(recent.map(o=>o.walking_km),recent.map(o=>o.evening_lower_back));
+  if(!isNaN(corrW)){
+    txt += Math.abs(corrW)<0.3 ? `Ходьба пока <strong>не показала устойчивой связи</strong> с вечерней болью. `
+         : corrW>0 ? `Больше ходьбы скорее совпадало с <strong>более высокой</strong> болью вечером. `
+         : `Больше ходьбы скорее совпадало с <strong>меньшей</strong> болью вечером. `;
+  }
+  // standing signal
+  const corrS = corr(recent.map(o=>o.standing_hours),recent.map(o=>o.evening_lower_back));
+  let trig=[];
+  if(!isNaN(corrS)&&corrS>0.3) trig.push("длительное стояние");
+  if(w.length&&o2.length&&mean(w)>mean(o2)+0.8) trig.push("рабочая нагрузка");
+  if(!isNaN(corr(recent.map(o=>o.longest_sitting_min),recent.map(o=>o.evening_lower_back)))&&corr(recent.map(o=>o.longest_sitting_min),recent.map(o=>o.evening_lower_back))>0.3) trig.push("долгие блоки сидения");
+  if(trig.length) txt += `Основные возможные триггеры: <strong>${trig.join(", ")}</strong>.`;
+  else txt += `Чёткого доминирующего триггера пока не видно — нужно больше данных.`;
+  rep.innerHTML=txt;
+}
+function median(a){ if(!a.length)return 0; const s=[...a].sort((x,y)=>x-y),m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function corr(x,y){ const n=x.length; if(n<3)return NaN; const mx=mean(x),my=mean(y); let num=0,dx=0,dy=0; for(let i=0;i<n;i++){const a=x[i]-mx,b=y[i]-my;num+=a*b;dx+=a*a;dy+=b*b;} return (dx&&dy)?num/Math.sqrt(dx*dy):NaN; }
+function plural(n){ const a=n%10,b=n%100; if(a===1&&b!==11)return"день"; if(a>=2&&a<=4&&(b<10||b>=20))return"дня"; return"дней"; }
+
+// ---------- tabs ----------
+function switchTab(name){
+  document.querySelectorAll("nav.tabs button").forEach(b=>b.classList.toggle("active",b.dataset.tab===name));
+  document.querySelectorAll("section.view").forEach(s=>s.classList.remove("active"));
+  document.getElementById("view-"+name).classList.add("active");
+  if(name==="charts") renderCharts();
+  if(name==="insights") renderInsights();
+  if(name==="entries") renderEntries();
+}
+document.getElementById("tabs").addEventListener("click",e=>{ const b=e.target.closest("button"); if(b)switchTab(b.dataset.tab); });
+
+// ---------- toast ----------
+let toastT;
+function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove("show"),1800); }
+
+function refreshAll(){ renderEntries(); if(document.getElementById("view-charts").classList.contains("active"))renderCharts(); if(document.getElementById("view-insights").classList.contains("active"))renderInsights(); }
+
+// ---------- init ----------
+(function init(){
+  const all=loadAll();
+  const today=new Date().toISOString().slice(0,10);
+  const existing=all.find(o=>o.date===today);
+  if(existing) objToForm(existing); else resetForm();
+  renderEntries();
+})();
+</script>
+</body>
+</html>
