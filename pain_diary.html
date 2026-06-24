@@ -66,11 +66,32 @@
   textarea{resize:vertical;min-height:54px}
   input:focus,select:focus,textarea:focus{outline:2px solid var(--slate);outline-offset:0;border-color:var(--slate)}
 
-  .slider-row{display:flex;align-items:center;gap:12px}
-  .slider-row input[type=range]{flex:1;accent-color:var(--ember)}
-  .slider-val{font-variant-numeric:tabular-nums;font-weight:700;min-width:2.2em;text-align:right;font-size:16px}
+  .slider-row{display:flex;align-items:center;gap:10px}
+  /* большая зона захвата + не уводит экран при касании */
+  .slider-row input[type=range]{
+    flex:1;-webkit-appearance:none;appearance:none;height:34px;background:transparent;
+    touch-action:none;cursor:pointer;margin:0;
+  }
+  .slider-row input[type=range]::-webkit-slider-runnable-track{height:10px;border-radius:6px;background:var(--line)}
+  .slider-row input[type=range]::-moz-range-track{height:10px;border-radius:6px;background:var(--line)}
+  .slider-row input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:30px;height:30px;border-radius:50%;
+    background:var(--ember);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);margin-top:-10px;
+  }
+  .slider-row input[type=range]::-moz-range-thumb{
+    width:28px;height:28px;border-radius:50%;background:var(--ember);border:3px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.3);
+  }
+  .step-btn{
+    flex:0 0 auto;width:38px;height:38px;border-radius:9px;border:1px solid var(--line);background:#fff;
+    font-size:22px;font-weight:700;line-height:1;color:var(--ink);cursor:pointer;font-family:inherit;
+    display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-user-select:none;user-select:none;
+  }
+  .step-btn:active{background:var(--ember);color:#fff;border-color:var(--ember)}
+  .slider-val{font-variant-numeric:tabular-nums;font-weight:700;min-width:2.0em;text-align:center;font-size:18px}
   .slider-val[data-zero="1"]{color:var(--muted);font-weight:600}
   .scale-hint{display:block;font-size:10.5px;color:var(--muted);margin-top:3px;letter-spacing:.02em;text-transform:none}
+  .submeasure{border-left:3px solid var(--ember-soft);padding-left:12px;margin:6px 0 14px}
+  .submeasure-h{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--ember);margin-bottom:8px}
 
   .seg{display:flex;flex-wrap:wrap;gap:6px}
   .seg button{
@@ -180,9 +201,23 @@
       <div class="grid2">
         <div data-slider="sleep_quality" data-label="Качество сна"></div>
         <div data-slider="mood" data-label="Настроение"></div>
-        <div data-slider="m_lower_back" data-label="Поясница (утро)" data-pain="1"></div>
+      </div>
+      <div class="submeasure">
+        <div class="submeasure-h">Сразу после пробуждения</div>
+        <div class="grid2">
+          <div data-slider="m_lower_back" data-label="Поясница" data-pain="1"></div>
+          <div data-slider="m_thoracic" data-label="Грудной отдел" data-pain="1"></div>
+        </div>
+      </div>
+      <div class="submeasure">
+        <div class="submeasure-h">Через 20 мин после зарядки</div>
+        <div class="grid2">
+          <div data-slider="m_lower_back_after" data-label="Поясница" data-pain="1"></div>
+          <div data-slider="m_thoracic_after" data-label="Грудной отдел" data-pain="1"></div>
+        </div>
+      </div>
+      <div class="grid2">
         <div data-slider="m_coccyx" data-label="Копчик (утро)" data-pain="1"></div>
-        <div data-slider="m_thoracic" data-label="Грудной отдел (утро)" data-pain="1"></div>
         <div data-slider="m_leg" data-label="Нога / симптомы (утро)" data-pain="1"></div>
         <div data-slider="m_anxiety" data-label="Тревога о боли (утро)" data-pain="1"></div>
         <div data-slider="m_interference" data-label="Мешает жить (утро)" data-pain="1"></div>
@@ -331,6 +366,7 @@
     <div class="card"><h2>3 · Средняя боль по типу дня</h2><div class="chart-box"><canvas id="c3"></canvas></div></div>
     <div class="card"><h2>4 · Ходьба vs поясница (вечер)</h2><div class="chart-box"><canvas id="c4"></canvas></div></div>
     <div class="card"><h2>5 · Стояние vs поясница (вечер)</h2><div class="chart-box"><canvas id="c5"></canvas></div></div>
+    <div class="card"><h2>6 · Эффект зарядки утром</h2><p class="hint">Боль до и после зарядки. Линия «после» ниже линии «до» — зарядка помогает.</p><div class="chart-box"><canvas id="c6"></canvas></div></div>
   </section>
 
   <!-- ============ INSIGHTS ============ -->
@@ -351,7 +387,7 @@
 
 <script>
 const KEY = "pain_pattern_diary_v1";
-const PAIN_FIELDS = ["m_lower_back","m_coccyx","m_thoracic","m_leg","m_anxiety","m_interference","e_lower_back","e_coccyx","e_thoracic","e_leg","e_anxiety","e_interference"];
+const PAIN_FIELDS = ["m_lower_back","m_lower_back_after","m_coccyx","m_thoracic","m_thoracic_after","m_leg","m_anxiety","m_interference","e_lower_back","e_coccyx","e_thoracic","e_leg","e_anxiety","e_interference"];
 const NEUTRAL_SLIDERS = ["sleep_quality","mood","stress_level","a_work_intensity"];
 
 let state = { daytype:"workday", ex:"no", med:"no", meditation:"no", tens:"no", char:"", checkins:[] };
@@ -364,19 +400,28 @@ function saveAll(arr){ localStorage.setItem(KEY, JSON.stringify(arr)); }
 // ---------- sliders ----------
 function buildSlider(div){
   const id = div.dataset.slider, label = div.dataset.label, pain = div.dataset.pain==="1";
-  div.classList.add("field"); 
+  div.classList.add("field");
   div.innerHTML = `<span>${label}</span>
     <div class="slider-row">
+      <button type="button" class="step-btn" data-step="-1" aria-label="меньше">−</button>
       <input type="range" min="0" max="10" step="1" value="0" id="${id}" ${pain?'data-pain="1"':''}>
+      <button type="button" class="step-btn" data-step="1" aria-label="больше">+</button>
       <span class="slider-val" data-zero="1" id="${id}_v">0</span>
     </div>
     ${pain?'<span class="scale-hint">0 — нет боли · 10 — невыносимо</span>':''}`;
   const inp = div.querySelector("input"), out = div.querySelector(".slider-val");
-  inp.addEventListener("input", ()=>{
+  function refresh(){
     out.textContent = inp.value;
     out.dataset.zero = inp.value==="0" ? "1":"0";
     out.style.color = pain && +inp.value>=7 ? "var(--ember)" : (inp.value==="0"?"var(--muted)":"var(--ink)");
     if(pain) checkFlags();
+  }
+  inp.addEventListener("input", refresh);
+  div.querySelectorAll(".step-btn").forEach(b=>{
+    b.addEventListener("click", ()=>{
+      const v=Math.min(10,Math.max(0,(+inp.value)+(+b.dataset.step)));
+      inp.value=v; inp.dispatchEvent(new Event("input"));
+    });
   });
 }
 document.querySelectorAll("[data-slider]").forEach(buildSlider);
@@ -450,6 +495,7 @@ function formToObj(){
     day_type: state.daytype,
     sleep_quality:getNum("sleep_quality"), stress_level:getNum("stress_level"), mood:getNum("mood"),
     morning_lower_back:getNum("m_lower_back"), morning_coccyx:getNum("m_coccyx"), morning_thoracic:getNum("m_thoracic"),
+    morning_lower_back_after:getNum("m_lower_back_after"), morning_thoracic_after:getNum("m_thoracic_after"),
     morning_leg_symptoms:getNum("m_leg"), morning_anxiety:getNum("m_anxiety"), morning_interference:getNum("m_interference"),
     evening_lower_back:getNum("e_lower_back"), evening_coccyx:getNum("e_coccyx"), evening_thoracic:getNum("e_thoracic"),
     evening_leg_symptoms:getNum("e_leg"), evening_anxiety:getNum("e_anxiety"), evening_interference:getNum("e_interference"),
@@ -476,6 +522,7 @@ function objToForm(o){
   setSeg("seg_daytype",o.day_type); state.daytype=o.day_type;
   setSlider("sleep_quality",o.sleep_quality); setSlider("stress_level",o.stress_level); setSlider("mood",o.mood);
   setSlider("m_lower_back",o.morning_lower_back); setSlider("m_coccyx",o.morning_coccyx); setSlider("m_thoracic",o.morning_thoracic);
+  setSlider("m_lower_back_after",o.morning_lower_back_after); setSlider("m_thoracic_after",o.morning_thoracic_after);
   setSlider("m_leg",o.morning_leg_symptoms); setSlider("m_anxiety",o.morning_anxiety); setSlider("m_interference",o.morning_interference);
   setSlider("e_lower_back",o.evening_lower_back); setSlider("e_coccyx",o.evening_coccyx); setSlider("e_thoracic",o.evening_thoracic);
   setSlider("e_leg",o.evening_leg_symptoms); setSlider("e_anxiety",o.evening_anxiety); setSlider("e_interference",o.evening_interference);
@@ -573,7 +620,7 @@ function renderEntries(){
 }
 
 // ---------- CSV export ----------
-const CSV_COLS=["date","day_type","sleep_quality","stress_level","mood","morning_lower_back","morning_coccyx","morning_thoracic","morning_leg_symptoms","morning_anxiety","morning_interference","evening_lower_back","evening_coccyx","evening_thoracic","evening_leg_symptoms","evening_anxiety","evening_interference","walking_km","longest_walk_min","standing_hours","sitting_hours","longest_sitting_min","work_intensity","exercises_done","exercise_reaction","meditation_done","meditation_min","meditation_reaction","tens_done","tens_min","tens_reaction","medication_taken","alcohol","notes"];
+const CSV_COLS=["date","day_type","sleep_quality","stress_level","mood","morning_lower_back","morning_lower_back_after","morning_coccyx","morning_thoracic","morning_thoracic_after","morning_leg_symptoms","morning_anxiety","morning_interference","evening_lower_back","evening_coccyx","evening_thoracic","evening_leg_symptoms","evening_anxiety","evening_interference","walking_km","longest_walk_min","standing_hours","sitting_hours","longest_sitting_min","work_intensity","exercises_done","exercise_reaction","meditation_done","meditation_min","meditation_reaction","tens_done","tens_min","tens_reaction","medication_taken","alcohol","notes"];
 document.getElementById("exportBtn").addEventListener("click", ()=>{
   const all=loadAll();
   if(!all.length){ toast("Нет данных"); return; }
@@ -659,7 +706,7 @@ const baseOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{label
 
 function renderCharts(){
   const all=loadAll();
-  if(!all.length){ ["c1","c2","c3","c4","c5"].forEach(id=>{ if(charts[id])charts[id].destroy(); }); return; }
+  if(!all.length){ ["c1","c2","c3","c4","c5","c6"].forEach(id=>{ if(charts[id])charts[id].destroy(); }); return; }
   const labels=all.map(o=>o.date.slice(5));
   mk("c1",{type:"line",data:{labels,datasets:[
     {label:"Поясница веч.",data:all.map(o=>o.evening_lower_back),borderColor:PAL.ember,backgroundColor:PAL.ember,tension:.3},
@@ -681,6 +728,13 @@ function renderCharts(){
   // c5 standing vs lower back
   mk("c5",{type:"scatter",data:{datasets:[{label:"день",data:all.map(o=>({x:o.standing_hours,y:o.evening_lower_back})),backgroundColor:PAL.slate}]},
     options:{...baseOpts,scales:{y:{beginAtZero:true,max:10,title:{display:true,text:"поясница веч."}},x:{beginAtZero:true,title:{display:true,text:"часов стоя"}}}}});
+  // c6 эффект зарядки: до vs после
+  mk("c6",{type:"line",data:{labels,datasets:[
+    {label:"Поясница до",data:all.map(o=>o.morning_lower_back),borderColor:PAL.ember,backgroundColor:PAL.ember,tension:.3},
+    {label:"Поясница после",data:all.map(o=>o.morning_lower_back_after),borderColor:PAL.ember,borderDash:[5,4],backgroundColor:PAL.ember,tension:.3},
+    {label:"Грудь до",data:all.map(o=>o.morning_thoracic),borderColor:PAL.slate,backgroundColor:PAL.slate,tension:.3},
+    {label:"Грудь после",data:all.map(o=>o.morning_thoracic_after),borderColor:PAL.slate,borderDash:[5,4],backgroundColor:PAL.slate,tension:.3}
+  ]},options:baseOpts});
 }
 
 // ---------- analytics ----------
@@ -784,6 +838,23 @@ function renderInsights(){
   if(!isNaN(corr(recent.map(o=>o.longest_sitting_min),recent.map(o=>o.evening_lower_back)))&&corr(recent.map(o=>o.longest_sitting_min),recent.map(o=>o.evening_lower_back))>0.3) trig.push("долгие блоки сидения");
   if(trig.length) txt += `Основные возможные триггеры: <strong>${trig.join(", ")}</strong>.`;
   else txt += `Чёткого доминирующего триггера пока не видно — нужно больше данных.`;
+
+  // эффект зарядки: дни, где заполнены оба замера
+  const exDays=recent.filter(o=>(o.morning_lower_back||o.morning_lower_back_after||o.morning_thoracic||o.morning_thoracic_after));
+  const lbBefore=exDays.map(o=>o.morning_lower_back), lbAfter=exDays.map(o=>o.morning_lower_back_after);
+  const thBefore=exDays.map(o=>o.morning_thoracic), thAfter=exDays.map(o=>o.morning_thoracic_after);
+  if(exDays.length>=3){
+    const dLB=r1(mean(lbBefore)-mean(lbAfter)), dTH=r1(mean(thBefore)-mean(thAfter));
+    let parts=[];
+    if(Math.abs(dLB)>=0.3) parts.push(`поясница ${dLB>0?"−"+dLB:"+"+Math.abs(dLB)}`);
+    if(Math.abs(dTH)>=0.3) parts.push(`грудь ${dTH>0?"−"+dTH:"+"+Math.abs(dTH)}`);
+    if(parts.length){
+      const helps=(dLB>0||dTH>0);
+      txt += ` <strong>Зарядка:</strong> в среднем после неё боль ${helps?"снижается":"меняется"} (${parts.join(", ")} балла).`;
+    } else {
+      txt += ` <strong>Зарядка:</strong> заметного изменения боли до/после пока не видно.`;
+    }
+  }
   rep.innerHTML=txt;
 }
 function median(a){ if(!a.length)return 0; const s=[...a].sort((x,y)=>x-y),m=s.length>>1; return s.length%2?s[m]:(s[m-1]+s[m])/2; }
